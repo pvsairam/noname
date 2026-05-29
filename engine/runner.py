@@ -100,7 +100,7 @@ def run_test(run_id: str, test_id: str, config: Config,
         width, height = get_screen_resolution()
         
         # 5. Launch Playwright
-    from playwright.sync_api import sync_playwright, expect, TimeoutError as PWTimeout
+        from playwright.sync_api import sync_playwright, expect, TimeoutError as PWTimeout
         with sync_playwright() as p:
             browser = p.chromium.launch(
                 headless=headless, 
