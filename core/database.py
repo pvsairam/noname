@@ -225,6 +225,26 @@ async def update_step(db_path: Path, step_id: str, sequence: int) -> None:
         await db.commit()
 
 
+async def update_step_properties(db_path: Path, step_id: str, action: str,
+                                 selector: Optional[str], value: Optional[str],
+                                 description: Optional[str], is_sensitive: bool) -> None:
+    now = _now_iso()
+    is_sensitive_int = 1 if is_sensitive else 0
+    async with aiosqlite.connect(db_path) as db:
+        await db.execute(
+            """UPDATE steps 
+               SET action = ?, selector = ?, value = ?, description = ?, is_sensitive = ?
+               WHERE id = ?""",
+            (action, selector, value, description, is_sensitive_int, step_id)
+        )
+        cursor = await db.execute("SELECT test_id FROM steps WHERE id = ?", (step_id,))
+        row = await cursor.fetchone()
+        if row:
+            test_id = row[0]
+            await db.execute("UPDATE tests SET updated_at = ? WHERE id = ?", (now, test_id))
+        await db.commit()
+
+
 async def delete_step(db_path: Path, step_id: str) -> None:
     now = _now_iso()
     async with aiosqlite.connect(db_path) as db:
@@ -236,6 +256,14 @@ async def delete_step(db_path: Path, step_id: str) -> None:
         
         await db.execute("DELETE FROM steps WHERE id = ?", (step_id,))
         await db.execute("UPDATE tests SET step_count = step_count - 1, updated_at = ? WHERE id = ?", (now, test_id))
+        
+        # Resequence remaining steps
+        cursor = await db.execute("SELECT id FROM steps WHERE test_id = ? ORDER BY sequence ASC", (test_id,))
+        rows = await cursor.fetchall()
+        for index, r in enumerate(rows):
+            new_seq = index + 1
+            await db.execute("UPDATE steps SET sequence = ? WHERE id = ?", (new_seq, r[0]))
+            
         await db.commit()
 
 

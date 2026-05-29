@@ -18,7 +18,7 @@ class Recorder:
         self.is_recording: bool = False
         self._lock = asyncio.Lock()
 
-    async def start_recording(self, url: str, output_file: Path) -> None:
+    async def start_recording(self, url: str, output_file: Path, env_id: str = None) -> None:
         """Start the codegen process."""
         async with self._lock:
             if self.is_recording:
@@ -40,13 +40,15 @@ class Recorder:
                 
                 if config.is_oracle_fusion:
                     state_file = Path("engine/.auth_state.json")
-                    logger.info("Pre-authenticating for recording...")
-                    subprocess.run([sys.executable, "-m", "engine.generate_auth", str(state_file)], check=False)
+                    logger.info(f"Pre-authenticating for recording on {url}...")
+                    auth_cmd = [sys.executable, "-m", "engine.generate_auth", str(state_file), url]
+                    if env_id:
+                        auth_cmd.append(env_id)
+                    subprocess.run(auth_cmd, check=False)
                     if state_file.exists():
                         cmd.insert(4, f"--load-storage={state_file}")
                 
                 # Match the test runner's dimensions and the user's laptop screen perfectly
-                cmd.insert(4, "--viewport-size=1536,730")
                 
                 self.process = subprocess.Popen(
                     cmd,

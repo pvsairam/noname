@@ -42,7 +42,7 @@ async def start_replay(request: Request, test_id: str, data: ReplayRequest):
         try:
             env = await database.get_environment(db_path, data.env_id)
             config = replace(config, fusion_url=env.url, fusion_user=env.username, fusion_pod=env.name)
-            password = os.environ.get(env.password_env_var, "")
+            password = os.environ.get(env.password_env_var) or env.password_env_var
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Failed to load environment: {str(e)}")
     else:
@@ -103,7 +103,7 @@ async def start_agent_replay(request: Request, test_id: str, data: AgentReplayRe
         try:
             env = await database.get_environment(db_path, data.env_id)
             config = replace(config, fusion_url=env.url, fusion_user=env.username, fusion_pod=env.name)
-            password = os.environ.get(env.password_env_var, "")
+            password = os.environ.get(env.password_env_var) or env.password_env_var
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Failed to load environment: {str(e)}")
     else:

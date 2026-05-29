@@ -123,11 +123,37 @@ async def start_record_test(
     db_path = request.app.state.db_path
     config = request.app.state.config
     
-    from core.config import resolve_password
+    from urllib.parse import urlparse
+    from dataclasses import replace
+    import os
+    
+    target_host = urlparse(test_url).netloc.lower()
+    password = ""
+    
     try:
-        password = resolve_password(config)
+        environments = await database.list_environments(db_path)
+        matching_env = None
+        for env in environments:
+            env_host = urlparse(env.url).netloc.lower()
+            if env_host == target_host:
+                matching_env = env
+                break
+                
+        if matching_env:
+            config = replace(config, fusion_url=matching_env.url, fusion_user=matching_env.username, fusion_pod=matching_env.name)
+            password = os.environ.get(matching_env.password_env_var) or matching_env.password_env_var
+            logger.info(f"AI Studio: Matched target URL host '{target_host}' to environment '{matching_env.name}' (User: {matching_env.username})")
+        else:
+            from core.config import resolve_password
+            password = resolve_password(config)
+            logger.info(f"AI Studio: No matching environment found for host '{target_host}'. Using default .env config (User: {config.fusion_user})")
     except Exception as e:
-        return JSONResponse(status_code=400, content={"error": f"Failed to resolve password: {str(e)}"})
+        logger.error(f"Failed to check matching environments: {e}")
+        from core.config import resolve_password
+        try:
+            password = resolve_password(config)
+        except Exception as resolve_err:
+            return JSONResponse(status_code=400, content={"error": f"Failed to resolve password: {str(resolve_err)}"})
     
     # Launch background task in a dedicated thread with proper Windows event loop policy
     def _run_in_thread():

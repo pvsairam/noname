@@ -56,7 +56,14 @@
         </thead>
         <tbody id="steps-tbody">
             {% for step in steps %}
-            <tr draggable="true" data-step-id="{{ step.id }}" data-seq="{{ step.sequence }}" class="drag-row group hover:bg-hover border-b border-strong last:border-0 transition-colors">
+            <tr draggable="true" 
+                data-step-id="{{ step.id }}" 
+                data-seq="{{ step.sequence }}" 
+                data-action="{{ step.action.value }}"
+                data-selector="{{ step.selector|escape if step.selector else '' }}"
+                data-value="{{ step.value|escape if step.value else '' }}"
+                data-description="{{ step.description|escape if step.description else '' }}"
+                class="drag-row group hover:bg-hover border-b border-strong last:border-0 transition-colors">
                 <td class="drag-handle text-tertiary cursor-grab text-center select-none group-hover:text-primary">
                     <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="inline opacity-0 group-hover:opacity-100 -ml-4 mr-1"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path></svg>
                     {{ step.sequence }}
@@ -79,6 +86,9 @@
                 </td>
                 <td class="text-sm text-primary">{{ step.description or '-' }}</td>
                 <td class="text-right pr-4">
+                    <button class="icon-btn text-accent p-1 hover:bg-accent-dim rounded transition-all mr-2" style="opacity: 0.8;" onclick="openEditStepModal(this)" title="Edit step">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    </button>
                     <button class="icon-btn text-red p-1 hover:bg-red-dim rounded transition-all" style="opacity: 0.8;" onclick="deleteStep('{{ test.id }}', '{{ step.id }}')" title="Delete step">
                         <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
                     </button>
@@ -87,10 +97,14 @@
             {% endfor %}
         </tbody>
     </table>
+    <div class="p-3 bg-surface border-t border-strong text-center">
+        <button class="btn btn-secondary text-sm" onclick="openAddStepModal('{{ test.id }}')">+ Add Step Manually</button>
+    </div>
     {% else %}
     <div class="py-12 text-center">
         <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24" class="mx-auto text-tertiary mb-3"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
-        <p class="text-secondary">No steps recorded.</p>
+        <p class="text-secondary mb-4">No steps recorded.</p>
+        <button class="btn btn-secondary" onclick="openAddStepModal('{{ test.id }}')">+ Add Step Manually</button>
     </div>
     {% endif %}
 </div>
@@ -186,6 +200,99 @@
         <div class="flex justify-end gap-2 border-t border-strong pt-4 mt-4">
             <button class="btn btn-secondary" onclick="document.getElementById('agent-modal').classList.add('hidden')">Cancel</button>
             <button class="btn btn-primary" id="am-start" onclick="submitAgentRun()">Start Autonomous Agent</button>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Step Modal -->
+<div id="edit-step-modal" class="modal hidden">
+    <div class="modal-content card max-w-md mx-auto mt-32">
+        <h2 class="section-title mb-4">Edit Step</h2>
+        
+        <input type="hidden" id="es-step-id">
+        <input type="hidden" id="es-test-id">
+        
+        <div class="form-group mb-4">
+            <label class="text-sm text-secondary mb-1 block">Action</label>
+            <select id="es-action" class="input w-full">
+                <option value="navigate">navigate</option>
+                <option value="click">click</option>
+                <option value="fill">fill</option>
+                <option value="select">select</option>
+                <option value="check">check</option>
+                <option value="uncheck">uncheck</option>
+                <option value="press">press</option>
+                <option value="wait">wait</option>
+                <option value="assert_visible">assert_visible</option>
+                <option value="assert_text">assert_text</option>
+                <option value="screenshot">screenshot</option>
+            </select>
+        </div>
+
+        <div class="form-group mb-4">
+            <label class="text-sm text-secondary mb-1 block">Selector</label>
+            <input type="text" id="es-selector" class="input w-full" placeholder="e.g. #username or xpath=...">
+        </div>
+
+        <div class="form-group mb-4">
+            <label class="text-sm text-secondary mb-1 block">Value</label>
+            <input type="text" id="es-value" class="input w-full" placeholder="Value for fill, select, press, assert_text, etc.">
+        </div>
+
+        <div class="form-group mb-6">
+            <label class="text-sm text-secondary mb-1 block">Description</label>
+            <input type="text" id="es-description" class="input w-full" placeholder="Step description">
+        </div>
+
+        <div class="flex justify-end gap-2 border-t border-strong pt-4 mt-4">
+            <button class="btn btn-secondary" onclick="document.getElementById('edit-step-modal').classList.add('hidden')">Cancel</button>
+            <button class="btn btn-primary" id="es-save" onclick="saveStepEdit()">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- Add Step Modal -->
+<div id="add-step-modal" class="modal hidden">
+    <div class="modal-content card max-w-md mx-auto mt-32">
+        <h2 class="section-title mb-4">Add Step</h2>
+        
+        <input type="hidden" id="as-test-id">
+        
+        <div class="form-group mb-4">
+            <label class="text-sm text-secondary mb-1 block">Action</label>
+            <select id="as-action" class="input w-full">
+                <option value="navigate">navigate</option>
+                <option value="click">click</option>
+                <option value="fill">fill</option>
+                <option value="select">select</option>
+                <option value="check">check</option>
+                <option value="uncheck">uncheck</option>
+                <option value="press">press</option>
+                <option value="wait">wait</option>
+                <option value="assert_visible">assert_visible</option>
+                <option value="assert_text">assert_text</option>
+                <option value="screenshot">screenshot</option>
+            </select>
+        </div>
+
+        <div class="form-group mb-4">
+            <label class="text-sm text-secondary mb-1 block">Selector</label>
+            <input type="text" id="as-selector" class="input w-full" placeholder="e.g. #username or xpath=...">
+        </div>
+
+        <div class="form-group mb-4">
+            <label class="text-sm text-secondary mb-1 block">Value</label>
+            <input type="text" id="as-value" class="input w-full" placeholder="Value for fill, select, press, assert_text, etc.">
+        </div>
+
+        <div class="form-group mb-6">
+            <label class="text-sm text-secondary mb-1 block">Description</label>
+            <input type="text" id="as-description" class="input w-full" placeholder="Step description">
+        </div>
+
+        <div class="flex justify-end gap-2 border-t border-strong pt-4 mt-4">
+            <button class="btn btn-secondary" onclick="document.getElementById('add-step-modal').classList.add('hidden')">Cancel</button>
+            <button class="btn btn-primary" id="as-save" onclick="saveAddStep()">Add Step</button>
         </div>
     </div>
 </div>

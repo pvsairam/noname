@@ -25,7 +25,9 @@ async def tests_list(request: Request) -> Any:
 @router.get("/tests/create", response_class=HTMLResponse)
 async def tests_create(request: Request) -> Any:
     """Render test creation page."""
-    return request.app.state.templates.TemplateResponse("tests/create.html", {"request": request})
+    db_path = request.app.state.db_path
+    environments = await database.list_environments(db_path)
+    return request.app.state.templates.TemplateResponse("tests/create.html", {"request": request, "environments": environments})
 
 @router.get("/tests/{id}", response_class=HTMLResponse)
 async def test_detail(request: Request, id: str) -> Any:

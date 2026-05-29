@@ -35,9 +35,14 @@ async def run_autonomous_agent(run_id: str, test_id: str, api_key: str, output_r
             logger.error(f"No steps found for test {test_id}")
             return
             
-        # Build task instructions
+        # Determine target URL: use config.fusion_url if it's an Oracle test and an env overrides it
+        target_url = test.url
+        if override_password and config.fusion_url:
+            if "oracle" in target_url.lower() or "fa." in target_url.lower() or "oraclecloud" in target_url.lower():
+                target_url = config.fusion_url
+        
         task_parts = [f"Your goal is to complete the test scenario: {test.name}"]
-        task_parts.append(f"Target URL: {test.url}")
+        task_parts.append(f"Target URL: {target_url}")
         
         if override_password and config.fusion_user:
             task_parts.append(f"CRITICAL: If presented with a login screen, use Username: '{config.fusion_user}' and Password: '{override_password}'.")

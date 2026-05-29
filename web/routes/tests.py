@@ -27,6 +27,12 @@ class CreateStepRequest(BaseModel):
     value: str | None = None
     description: str | None = None
 
+class UpdateStepRequest(BaseModel):
+    action: str
+    selector: str | None = None
+    value: str | None = None
+    description: str | None = None
+
 class ReorderStepItem(BaseModel):
     id: str
     sequence: int
@@ -116,13 +122,6 @@ async def delete_steps(request: Request, id: str) -> Dict[str, Any]:
     await database.delete_steps_for_test(db_path, id)
     return {"data": None, "message": "All steps deleted"}
 
-@router.delete("/tests/{test_id}/steps/{step_id}")
-async def delete_single_step(request: Request, test_id: str, step_id: str) -> Dict[str, Any]:
-    """Delete a single step for a test."""
-    db_path = request.app.state.db_path
-    await database.delete_step(db_path, step_id)
-    return {"data": None, "message": "Step deleted"}
-
 @router.put("/tests/{id}/steps/reorder")
 async def reorder_steps(request: Request, id: str, items: List[ReorderStepItem]) -> Dict[str, Any]:
     """Reorder steps for a test."""
@@ -131,3 +130,31 @@ async def reorder_steps(request: Request, id: str, items: List[ReorderStepItem])
         await database.update_step(db_path, item.id, item.sequence)
     steps = await database.get_steps_for_test(db_path, id)
     return {"data": steps, "message": "Steps reordered successfully"}
+
+@router.delete("/tests/{test_id}/steps/{step_id}")
+async def delete_single_step(request: Request, test_id: str, step_id: str) -> Dict[str, Any]:
+    """Delete a single step for a test."""
+    db_path = request.app.state.db_path
+    await database.delete_step(db_path, step_id)
+    return {"data": None, "message": "Step deleted"}
+
+@router.put("/tests/{test_id}/steps/{step_id}")
+async def update_single_step(request: Request, test_id: str, step_id: str, data: UpdateStepRequest) -> Dict[str, Any]:
+    """Update a single step for a test."""
+    db_path = request.app.state.db_path
+    sanitized = sanitize_step(
+        action=data.action,
+        selector=data.selector or "",
+        value=data.value or ""
+    )
+    await database.update_step_properties(
+        db_path,
+        step_id=step_id,
+        action=sanitized["action"],
+        selector=sanitized["selector"] if sanitized["selector"] else None,
+        value=sanitized["value"] if sanitized["value"] else None,
+        description=data.description,
+        is_sensitive=sanitized["is_sensitive"]
+    )
+    return {"data": None, "message": "Step updated successfully"}
+

@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/recording", tags=["Recording"])
 class StartRecordingRequest(BaseModel):
     test_id: str
     url: str
+    env_id: str | None = None
 
 @router.post("/start")
 async def start_recording(request: Request, data: StartRecordingRequest):
@@ -37,7 +38,7 @@ async def start_recording(request: Request, data: StartRecordingRequest):
     # Store test_id on app state to associate when stopped
     request.app.state.recording_test_id = data.test_id
     
-    await recorder.start_recording(data.url, output_file)
+    await recorder.start_recording(data.url, output_file, data.env_id)
     return {"status": "recording", "message": "Playwright recorder launched"}
 
 @router.post("/stop")

@@ -25,11 +25,13 @@ def is_sensitive_field(selector: str, value: str = "") -> bool:
     value_lower = value.lower() if value else ""
     
     for pattern in SENSITIVE_PATTERNS:
-        if pattern in selector_lower or pattern in value_lower:
+        # Check selector for sensitive patterns (using word boundaries to avoid matching "passenger" with "pass")
+        if re.search(r'\b' + re.escape(pattern) + r'\b', selector_lower):
             return True
             
     # Heuristic for password-like values (length > 6, mixed characters)
-    if value and len(value) > 6:
+    # Exclude values with spaces as they are usually sentences or addresses
+    if value and len(value) > 6 and ' ' not in value:
         has_upper = bool(re.search(r'[A-Z]', value))
         has_lower = bool(re.search(r'[a-z]', value))
         has_digit = bool(re.search(r'\d', value))

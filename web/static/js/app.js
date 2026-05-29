@@ -180,10 +180,13 @@ async function startTestRecord() {
         if (!tRes.ok) throw new Error("Failed to create test");
         const testData = await tRes.json();
         
+        const envSelect = document.getElementById('cr-env');
+        const envId = envSelect ? envSelect.value : null;
+        
         const rRes = await fetch('/api/recording/start', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({test_id: testData.data.id, url: url})
+            body: JSON.stringify({test_id: testData.data.id, url: url, env_id: envId})
         });
         
         if (!rRes.ok) throw new Error(await rRes.text());
@@ -365,6 +368,129 @@ async function deleteStep(testId, stepId) {
     } catch(e) { showToast(e.message, "error"); }
 }
 
+function openEditStepModal(buttonEl) {
+    const tr = buttonEl.closest('tr');
+    const table = tr.closest('table');
+    const testId = table.dataset.testId;
+    
+    const stepId = tr.dataset.stepId;
+    const action = tr.dataset.action;
+    const selector = tr.dataset.selector;
+    const value = tr.dataset.value;
+    const description = tr.dataset.description;
+    
+    document.getElementById('es-step-id').value = stepId;
+    document.getElementById('es-test-id').value = testId;
+    document.getElementById('es-action').value = action;
+    document.getElementById('es-selector').value = selector || '';
+    document.getElementById('es-value').value = value || '';
+    document.getElementById('es-description').value = description || '';
+    
+    document.getElementById('edit-step-modal').classList.remove('hidden');
+}
+
+async function saveStepEdit() {
+    const stepId = document.getElementById('es-step-id').value;
+    const testId = document.getElementById('es-test-id').value;
+    const action = document.getElementById('es-action').value;
+    const selector = document.getElementById('es-selector').value;
+    const value = document.getElementById('es-value').value;
+    const description = document.getElementById('es-description').value;
+    
+    const btn = document.getElementById('es-save');
+    btn.disabled = true;
+    btn.innerText = "Saving...";
+    
+    try {
+        const res = await fetch(`/api/tests/${testId}/steps/${stepId}`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action,
+                selector: selector || null,
+                value: value || null,
+                description: description || null
+            })
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            showToast("Step updated successfully", "success");
+            setTimeout(() => window.location.reload(), 500);
+        } else {
+            throw new Error(data.detail || data.message || "Failed to update step");
+        }
+    } catch (e) {
+        showToast(e.message, "error");
+        btn.disabled = false;
+        btn.innerText = "Save Changes";
+    }
+}
+
+
+// Add Step Modal Functions
+function openAddStepModal(testId) {
+    document.getElementById('as-test-id').value = testId;
+    
+    // Clear previous values
+    document.getElementById('as-action').value = 'click';
+    document.getElementById('as-selector').value = '';
+    document.getElementById('as-value').value = '';
+    document.getElementById('as-description').value = '';
+    
+    document.getElementById('add-step-modal').classList.remove('hidden');
+}
+
+async function saveAddStep() {
+    const testId = document.getElementById('as-test-id').value;
+    const action = document.getElementById('as-action').value;
+    const selector = document.getElementById('as-selector').value;
+    const value = document.getElementById('as-value').value;
+    const description = document.getElementById('as-description').value;
+    
+    const btn = document.getElementById('as-save');
+    btn.disabled = true;
+    btn.innerText = "Adding...";
+    
+    try {
+        // Calculate the next sequence number by looking at the existing rows
+        const table = document.getElementById('steps-tbody');
+        let nextSequence = 1;
+        if (table) {
+            const rows = Array.from(table.querySelectorAll('tr[data-seq]'));
+            if (rows.length > 0) {
+                const maxSeq = Math.max(...rows.map(r => parseInt(r.dataset.seq) || 0));
+                nextSequence = maxSeq + 1;
+            }
+        }
+
+        const res = await fetch(`/api/tests/${testId}/steps`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                sequence: nextSequence,
+                action,
+                selector: selector || null,
+                value: value || null,
+                description: description || null
+            })
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            showToast("Step added successfully", "success");
+            setTimeout(() => window.location.reload(), 500);
+        } else {
+            throw new Error(data.detail || data.message || "Failed to add step");
+        }
+    } catch (e) {
+        showToast(e.message, "error");
+        btn.disabled = false;
+        btn.innerText = "Add Step";
+    }
+}
+
+
 // 8. Client-side search
 function initSearch(inputSelector, tableSelector) {
     const input = document.querySelector(inputSelector);
@@ -436,7 +562,11 @@ function initDragReorder() {
                 }
                 
                 // Collect new order
-                const newOrder = Array.from(tbody.querySelectorAll('.drag-row')).map(r => r.dataset.stepId);
+                const allRowsNow = Array.from(tbody.querySelectorAll('.drag-row'));
+                const newOrder = allRowsNow.map((r, index) => ({
+                    id: r.dataset.stepId,
+                    sequence: index + 1
+                }));
                 const testId = tbody.closest('table').dataset.testId;
                 
                 try {
