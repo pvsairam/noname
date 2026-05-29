@@ -1,7 +1,11 @@
 """Session expiration handling."""
-
+from __future__ import annotations
 from pathlib import Path
-from playwright.sync_api import Page
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Page
+
 from core.config import Config
 from fusion.login_page import LoginPage
 from core.logging import get_logger
