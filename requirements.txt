@@ -1,4 +1,3 @@
-playwright==1.44.0
 fastapi==0.111.0
 uvicorn[standard]==0.30.1
 jinja2==3.1.4
@@ -13,5 +12,3 @@ aiofiles==23.2.1
 litellm==1.40.15
 pandas==2.2.2
 google-generativeai
-browser-use>=0.1.0
-langchain-openai>=0.1.0
